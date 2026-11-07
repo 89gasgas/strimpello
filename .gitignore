@@ -1,1 +1,4 @@
 *.pdf
+
+# Backup delle canzoni: contengono i testi, non devono mai essere pubblicati
+strimpello-backup-*.json
