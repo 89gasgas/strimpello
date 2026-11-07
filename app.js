@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.1.0';
+  const VERSION = '0.1.1';
   const DAY = 24 * 60 * 60 * 1000;
   const SIZE_MIN = 14;
   const SIZE_MAX = 34;
@@ -340,7 +340,7 @@ Regole:
         <button role="tab" id="tab-preview" aria-selected="true" aria-controls="pane-preview" data-act="tab" data-pane="preview">Anteprima</button>
         <button role="tab" id="tab-edit" aria-selected="false" aria-controls="pane-edit" data-act="tab" data-pane="edit">Testo e accordi</button>
       </div>
-      <div id="pane-preview" role="tabpanel" aria-labelledby="tab-preview" class="preview"><div class="lyrics">${renderLyrics(d.body)}</div></div>
+      <div id="pane-preview" role="tabpanel" aria-labelledby="tab-preview" class="preview" data-act="edit-text"><div class="lyrics">${renderLyrics(d.body)}</div><p class="hint">Tocca il testo per modificarlo.</p></div>
       <div id="pane-edit" role="tabpanel" aria-labelledby="tab-edit" hidden>
         <textarea id="f-body" class="text" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(d.body)}</textarea>
         <p class="hint">Ogni accordo va tra parentesi quadre, subito prima della sillaba: [Am]Ciao [G]come stai.</p>
@@ -350,6 +350,7 @@ Regole:
         ${editId ? '<button class="btn danger block" data-act="delete">Elimina canzone</button>' : ''}
       </div>`;
     await applyLyricSize();
+    if (editId) showPane('edit');
 
     let t;
     const persist = () => { clearTimeout(t); t = setTimeout(() => { if (!d.id) Meta.set('draft', d); }, 400); };
@@ -563,6 +564,10 @@ Regole:
       case 'paste-clip': pasteFromClipboard(); break;
       case 'continue': continueImport(); break;
       case 'tab': showPane(el.dataset.pane); break;
+      case 'edit-text':
+        showPane('edit');
+        document.getElementById('f-body').focus();
+        break;
       case 'save': saveDraft(); break;
       case 'cancel-review': cancelReview(); break;
       case 'delete': deleteSong(); break;

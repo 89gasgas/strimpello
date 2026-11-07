@@ -1,5 +1,5 @@
 /* Strimpello — service worker: l'app funziona anche senza connessione. */
-const CACHE = 'strimpello-v0.1.0';
+const CACHE = 'strimpello-v0.1.1';
 const ASSETS = [
   './',
   './index.html',

@@ -21,4 +21,4 @@ L'app sarà su `https://<username>.github.io/strimpello/`.
 | `sw.js` | Funzionamento offline |
 | `manifest.webmanifest`, `icon-*.png` | Installazione come app |
 
-Versione 0.1.0: tappa 1 (archivio, import, revisione, backup).
+Versione 0.1.1: tappa 1 (archivio, import, revisione, backup).
