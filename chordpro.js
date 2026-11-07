@@ -229,9 +229,91 @@ const ChordPro = (() => {
       .replace(/\[[^\]\n]*\]/g, '');
   }
 
+  /* ---------- Nomi degli accordi: analisi, forma canonica, notazione italiana ---------- */
+
+  const ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const NOTE_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const US_TO_IT = { C: 'Do', D: 'Re', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
+  const US_PARTS = /^([A-G])([#b]?)(.*?)(?:\/([A-G])([#b]?))?$/;
+
+  const pcOf = (letter, acc) => (NOTE_PC[letter] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
+
+  /** Suffisso scritto in uno dei modi comuni → suffisso usato nel dizionario. */
+  function canonSuffix(raw) {
+    let s = fixAcc(raw).replace(/[()]/g, '').replace(/,/g, '');
+    s = s.replace(/^min(?!or)/, 'm').replace(/^-/, 'm');
+    const map = {
+      '': '', maj: '', M: '', major: '', minor: 'm',
+      M7: 'maj7', Maj7: 'maj7', ma7: 'maj7', '7M': 'maj7', '7+': 'maj7', 'maj7': 'maj7',
+      mM7: 'mmaj7', mmaj7: 'mmaj7', mMaj7: 'mmaj7', 'm7+': 'mmaj7',
+      '+': 'aug', '#5': 'aug', aug: 'aug', '+5': 'aug',
+      '+7': 'aug7', '7#5': 'aug7', '7+5': 'aug7', aug7: 'aug7',
+      '°': 'dim', dim: 'dim', '°7': 'dim7', dim7: 'dim7',
+      'ø': 'm7b5', 'ø7': 'm7b5', 'm7-5': 'm7b5', m7b5: 'm7b5',
+      sus: 'sus4', '4': 'sus4', sus4: 'sus4', '2': 'sus2', sus2: 'sus2',
+      '7sus': '7sus4', '7sus4': '7sus4', '74': '7sus4', '7-5': '7b5',
+      add2: 'add9', madd2: 'madd9', '6/9': '69', 'M9': 'maj9', 'Maj9': 'maj9',
+    };
+    return Object.prototype.hasOwnProperty.call(map, s) ? map[s] : s;
+  }
+
+  /** Scompone un accordo (americano o italiano). null se non è un accordo. */
+  function splitChord(name) {
+    const t = toAmerican(String(name || '').trim());
+    if (!isUsChord(t)) return null;
+    const m = t.match(US_PARTS);
+    if (!m) return null;
+    const [, letter, acc, suffix, bLetter, bAcc] = m;
+    const pc = pcOf(letter, acc);
+    const out = { letter, acc, suffix, pc, canon: canonSuffix(suffix), bass: null };
+    if (bLetter) out.bass = { letter: bLetter, acc: bAcc, pc: pcOf(bLetter, bAcc) };
+    return out;
+  }
+
+  /** Nomi da cercare nel dizionario, dal più preciso al più generico. */
+  function chordKeys(name) {
+    const c = splitChord(name);
+    if (!c) return null;
+    const base = ROOTS[c.pc] + c.canon;
+    return { base, slash: c.bass ? base + '/' + ROOTS[c.bass.pc] : null, bassPc: c.bass ? c.bass.pc : null };
+  }
+
+  /** Accordo in notazione italiana: Do, Mim, Sib, Do7+, Sol4, Do/Mi. */
+  function toItalian(name) {
+    const c = splitChord(name);
+    if (!c) return name;
+    let suffix = c.suffix;
+    if (c.canon === 'maj7') suffix = '7+';
+    else if (c.canon === 'mmaj7') suffix = 'm7+';
+    else if (c.canon === 'sus4') suffix = '4';
+    let out = US_TO_IT[c.letter] + c.acc + suffix;
+    if (c.bass) out += '/' + US_TO_IT[c.bass.letter] + c.bass.acc;
+    return out;
+  }
+
+  /** Nome di una nota (0–11) nella notazione scelta. */
+  function noteName(pc, notation) {
+    const r = ROOTS[pc];
+    return notation === 'it' ? US_TO_IT[r[0]] + r.slice(1) : r;
+  }
+
+  const displayChord = (name, notation) => (notation === 'it' ? toItalian(name) : name);
+
+  /** Testo digitato nella ricerca (anche minuscolo, anche italiano) → accordo americano o null. */
+  function parseQuery(q) {
+    let t = String(q || '').trim().replace(/\s+/g, '');
+    if (!t) return null;
+    const it = t.match(/^(do|re|mi|fa|sol|la|si)(.*)$/i);
+    if (it) t = it[1][0].toUpperCase() + it[1].slice(1).toLowerCase() + it[2];
+    else t = t[0].toUpperCase() + t.slice(1);
+    const c = splitChord(t);
+    return c ? toAmerican(t) : null;
+  }
+
   return {
     isChordToken, isChordLine, toAmerican, convertChordsOverLyrics, normalizeChordPro,
     looksLikeChordPro, splitGeminiResponse, extractMeta, importText, parse, plainText, tidy,
+    ROOTS, canonSuffix, splitChord, chordKeys, toItalian, noteName, displayChord, parseQuery,
   };
 })();
 

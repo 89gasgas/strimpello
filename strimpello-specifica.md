@@ -122,9 +122,9 @@ Le scelte sono proposte mie, tranne browser e uso di Gemini, pensate per un'app 
 | Archivio sul telefono | IndexedDB, il database interno del browser | Gratis, offline, nessun server |
 | Trascrizione di foto e screenshot | Gemini, usato da te fuori dall'app | Nessun costo aggiuntivo; sulle foto di libri probabilmente più preciso dell'OCR |
 | OCR nell'app | Tesseract.js sul telefono, caricato solo quando lo usi | Gratis; alternativa a Gemini; se non lo usi l'app resta leggera |
-| Diagrammi | Disegnati dall'app da un database aperto di diteggiature per ukulele e chitarra (es. chords-db, licenza da verificare) | Nessun disegno da fare a mano |
+| Diagrammi | Disegnati dall'app da chords-db 0.5.1 (licenza MIT), copiato nel repository come `chords.js` | Nessun disegno da fare a mano; funziona offline |
 | Librerie esterne | Caricate da CDN con versione bloccata | Pochi file da caricare su GitHub; nessun aggiornamento a sorpresa |
-| Numero di file | 9, in un'unica cartella | Caricamento manuale semplice |
+| Numero di file | 10, in un'unica cartella | Caricamento manuale semplice |
 
 ## Fuori dalla v1
 
@@ -158,7 +158,7 @@ Il rischio principale è che Gemini alteri testo o accordi senza che te ne accor
 La v1 si costruisce in tre tappe, ognuna provata sul telefono prima della successiva.
 
 - [ ] Tappa 1: archivio (A1–A3, A5, A6), import con revisione (I3–I5, I8, I9), backup (B1–B5). File consegnati il 7 novembre 2026, da provare sul telefono
-- [ ] Tappa 2: dizionario (D1–D9), tocco sull'accordo (A4), trasposizione (A7, A10)
+- [ ] Tappa 2: dizionario (D1–D9), tocco sull'accordo (A4), trasposizione (A7, A10). Dizionario, tocco sull'accordo e impostazioni consegnati il 7 novembre 2026 (versione 0.2.0); manca la trasposizione
 - [ ] Tappa 3: scorrimento automatico e schermo acceso (A8, A9, A10), menu Condividi (I6), OCR (I1, I2)
 
 ## Criteri di accettazione della v1
@@ -190,3 +190,4 @@ Tutte le domande sono chiuse e le righe con origine Proposta sono approvate.
 - [x] OCR dentro l'app: tenuto come alternativa a Gemini
 - [x] Browser: Chrome
 - [x] Lingua delle canzoni: italiano e inglese
+- [ ] Gemini rifiuta di trascrivere le canzoni per motivi di copyright (7 novembre 2026): il copia-incolla da un sito (I3) funziona; per foto e screenshot resta l'OCR nell'app (I1, I2). Da decidere se togliere I8 e I9

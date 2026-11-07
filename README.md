@@ -16,9 +16,10 @@ L'app sarà su `https://<username>.github.io/strimpello/`.
 | File | Contenuto |
 | --- | --- |
 | `index.html` | Pagina e stile |
-| `app.js` | Interfaccia, archivio, backup |
+| `app.js` | Interfaccia, archivio, dizionario, impostazioni, backup |
 | `chordpro.js` | Riconoscimento e conversione degli accordi |
+| `chords.js` | Diteggiature per ukulele e chitarra, da [chords-db](https://github.com/tombatossals/chords-db) (MIT) |
 | `sw.js` | Funzionamento offline |
 | `manifest.webmanifest`, `icon-*.png` | Installazione come app |
 
-Versione 0.1.1: tappa 1 (archivio, import, revisione, backup).
+Versione 0.2.0: tappa 1 (archivio, import, revisione, backup) e dizionario degli accordi.

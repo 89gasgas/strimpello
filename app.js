@@ -1,8 +1,8 @@
-/* Strimpello — interfaccia (tappa 1: archivio, import, revisione, backup). */
+/* Strimpello — interfaccia: archivio, import, revisione, dizionario accordi, impostazioni e backup. */
 (() => {
   'use strict';
 
-  const VERSION = '0.1.1';
+  const VERSION = '0.2.0';
   const DAY = 24 * 60 * 60 * 1000;
   const SIZE_MIN = 14;
   const SIZE_MAX = 34;
@@ -25,6 +25,7 @@ Regole:
   const ICON = {
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   };
 
@@ -71,7 +72,7 @@ Regole:
   };
 
   /* ---------- Stato e utilità ---------- */
-  const state = { songs: [], query: '', draft: null, listScroll: 0, installEvent: null, route: '' };
+  const state = { songs: [], query: '', draft: null, listScroll: 0, installEvent: null, route: '', instrument: 'ukulele', notation: 'us', dictRoot: 0, dictQuery: '' };
   const view = document.getElementById('view');
   const bar = document.getElementById('topbar');
 
@@ -160,7 +161,9 @@ Regole:
   }
 
   /* ---------- Disegno del testo con gli accordi ---------- */
-  function renderLyrics(body) {
+  const showChord = (name) => ChordPro.displayChord(name, state.notation);
+
+  function renderLyrics(body, { tap = false } = {}) {
     const { lines } = ChordPro.parse(body);
     let html = '';
     let open = false;
@@ -173,8 +176,12 @@ Regole:
         html += `<p class="ln"><span class="ly">${esc(ln.segments.map((s) => s.text).join(''))}</span></p>`;
         continue;
       }
-      html += '<p class="ln has-ch">' + ln.segments.map((s) =>
-        `<span class="seg"><span class="ch">${esc(s.chord)}</span><span class="ly">${s.text ? esc(s.text) : '\u200b'}</span></span>`).join('') + '</p>';
+      html += '<p class="ln has-ch">' + ln.segments.map((s) => {
+        const ch = !s.chord ? '<span class="ch"></span>'
+          : tap ? `<button class="ch" data-act="chord" data-chord="${esc(s.chord)}">${esc(showChord(s.chord))}</button>`
+            : `<span class="ch">${esc(showChord(s.chord))}</span>`;
+        return `<span class="seg">${ch}<span class="ly">${s.text ? esc(s.text) : '\u200b'}</span></span>`;
+      }).join('') + '</p>';
     }
     if (open) html += '</div>';
     return html || '<p class="hint">Nessun testo.</p>';
@@ -251,7 +258,7 @@ Regole:
         ${song.artist ? `<div class="artist">${esc(song.artist)}</div>` : ''}
         ${capo ? `<div class="capo">Capotasto al ${esc(capo)}° tasto</div>` : ''}
       </header>
-      <div class="lyrics">${renderLyrics(song.body)}</div>`;
+      <div class="lyrics">${renderLyrics(song.body, { tap: true })}</div>`;
     state.currentTitle = song.title;
     await applyLyricSize();
   }
@@ -263,6 +270,160 @@ Regole:
     document.documentElement.style.setProperty('--lyric-size', next + 'px');
     Meta.set('lyricSize', next);
     if (next === cur) toast(delta > 0 ? 'Dimensione massima' : 'Dimensione minima');
+  }
+
+  /* ---------- Diagrammi degli accordi ---------- */
+  const INSTRUMENTS = { ukulele: 'Ukulele', guitar: 'Chitarra' };
+  const MAIN_TYPES = [
+    ['', 'maggiore'], ['m', 'minore'], ['7', 'settima'], ['maj7', 'settima maggiore'], ['m7', 'minore settima'],
+    ['sus2', 'sus2'], ['sus4', 'sus4'], ['dim', 'diminuito'], ['aug', 'aumentato'],
+  ];
+  const OTHER_TYPES = ['6', 'm6', '9', 'add9', '7sus4', 'dim7', 'm7b5', 'mmaj7', 'maj9', 'm9', 'madd9', '69', 'm69', '11', 'm11', '13', '7b5', 'aug7', '7b9', '7#9'];
+
+  /** Cerca un accordo nel dizionario dello strumento scelto. */
+  function findChord(name, inst = state.instrument) {
+    const db = CHORD_DB[inst].chords;
+    const k = ChordPro.chordKeys(name);
+    if (!k) return null;
+    if (k.slash && db[k.slash]) return { name: k.slash, positions: db[k.slash], note: '' };
+    if (!db[k.base]) return null;
+    let note = '';
+    if (k.slash) {
+      const bass = ChordPro.noteName(k.bassPc, state.notation);
+      note = inst === 'ukulele'
+        ? `Sull’ukulele il basso ${bass} non si suona: questa è la diteggiatura di ${showChord(k.base)}.`
+        : `Diteggiatura di ${showChord(k.base)}, senza il basso ${bass}.`;
+    }
+    return { name: k.base, positions: db[k.base], note };
+  }
+
+  /** Diagramma SVG: corde verticali, tasti orizzontali, dita numerate. */
+  function diagramSvg(pos, inst = state.instrument) {
+    const [fretStr, fingerStr, base, barreStr] = pos;
+    const frets = [...fretStr].map((c) => (c === 'x' ? -1 : parseInt(c, 16)));
+    const fingers = [...fingerStr].map(Number);
+    const barres = [...barreStr].map((c) => parseInt(c, 16));
+    const tuning = CHORD_DB[inst].tuning;
+    const n = frets.length;
+    const rows = Math.max(4, ...frets);
+    const sx = n === 4 ? 26 : 20;
+    const sy = 26;
+    const left = 26;
+    const top = 26;
+    const w = left + (n - 1) * sx + 18;
+    const h = top + rows * sy + 24;
+    const X = (i) => left + i * sx;
+    const Y = (f) => top + (f - 0.5) * sy;
+    const r = n === 4 ? 9.5 : 8;
+    let g = '';
+    for (let k = 0; k <= rows; k++) g += `<line class="fr" x1="${X(0)}" y1="${top + k * sy}" x2="${X(n - 1)}" y2="${top + k * sy}"/>`;
+    for (let i = 0; i < n; i++) g += `<line class="st" x1="${X(i)}" y1="${top}" x2="${X(i)}" y2="${top + rows * sy}"/>`;
+    if (base === 1) g += `<rect class="nut" x="${X(0) - 1}" y="${top - 4}" width="${X(n - 1) - X(0) + 2}" height="5" rx="1"/>`;
+    else g += `<text class="base" x="${X(0) - 10}" y="${Y(1) + 4}" text-anchor="end">${base}</text>`;
+    const covered = new Set();
+    for (const b of barres) {
+      const idx = frets.map((f, i) => (f === b ? i : -1)).filter((i) => i >= 0);
+      if (idx.length < 2) continue;
+      const a = Math.min(...idx);
+      const z = Math.max(...idx);
+      idx.forEach((i) => covered.add(i));
+      g += `<rect class="dot" x="${X(a) - r}" y="${Y(b) - r}" width="${X(z) - X(a) + 2 * r}" height="${2 * r}" rx="${r}"/>`;
+      const fg = fingers[idx[0]];
+      if (fg) g += `<text class="fg" x="${(X(a) + X(z)) / 2}" y="${Y(b) + 4}" text-anchor="middle">${fg}</text>`;
+    }
+    frets.forEach((f, i) => {
+      if (f < 0) g += `<text class="mk" x="${X(i)}" y="${top - 9}" text-anchor="middle">×</text>`;
+      else if (f === 0) g += `<circle class="open" cx="${X(i)}" cy="${top - 13}" r="4.5"/>`;
+      else if (!covered.has(i)) {
+        g += `<circle class="dot" cx="${X(i)}" cy="${Y(f)}" r="${r}"/>`;
+        if (fingers[i]) g += `<text class="fg" x="${X(i)}" y="${Y(f) + 4}" text-anchor="middle">${fingers[i]}</text>`;
+      }
+      const tn = ChordPro.noteName(ChordPro.splitChord(tuning[i]).pc, state.notation);
+      g += `<text class="tn" x="${X(i)}" y="${h - 6}" text-anchor="middle">${esc(tn)}</text>`;
+    });
+    return `<svg class="diagram" viewBox="0 0 ${w} ${h}" aria-hidden="true">${g}</svg>`;
+  }
+
+  const describePos = (pos) => (pos[2] === 1 ? 'Prima posizione' : `Dal ${pos[2]}° tasto`);
+
+  /** Foglio con tutte le posizioni di un accordo (dal dizionario o toccandolo in una canzone). */
+  function openChord(name) {
+    const sheet = document.getElementById('sheet');
+    const found = findChord(name);
+    const inst = INSTRUMENTS[state.instrument];
+    let body;
+    if (!found) {
+      body = `<p class="sheet-msg">Non ho il diagramma di «${esc(showChord(name))}» per ${state.instrument === 'ukulele' ? 'l’ukulele' : 'la chitarra'}.</p>`;
+    } else {
+      body = (found.note ? `<p class="sheet-msg">${esc(found.note)}</p>` : '') +
+        `<div class="positions">${found.positions.map((p, i) =>
+          `<figure class="pos">${diagramSvg(p)}<figcaption>${i + 1}. ${describePos(p)}</figcaption></figure>`).join('')}</div>`;
+    }
+    sheet.innerHTML = `<div class="sheet-head"><h2>${esc(showChord(name))}</h2><span class="sheet-inst">${inst}</span><button class="icon-btn" data-act="close-sheet" aria-label="Chiudi">${ICON.close}</button></div>${body}`;
+    if (!sheet.open) sheet.showModal();
+  }
+
+  /* ---------- Vista: dizionario ---------- */
+  function instSwitch() {
+    return `<div class="tabs" role="group" aria-label="Strumento">${Object.entries(INSTRUMENTS).map(([k, label]) =>
+      `<button data-act="set-inst" data-value="${k}" aria-pressed="${state.instrument === k}">${label}</button>`).join('')}</div>`;
+  }
+
+  function chordCard(name, label) {
+    const f = findChord(name);
+    if (!f) return '';
+    return `<button class="card" data-act="chord" data-chord="${esc(name)}">${diagramSvg(f.positions[0])}<span class="cn">${esc(showChord(name))}</span>${label ? `<span class="cl">${esc(label)}</span>` : ''}</button>`;
+  }
+
+  function renderDict() {
+    const box = document.getElementById('dict');
+    if (!box) return;
+    const q = state.dictQuery.trim();
+    let top = '';
+    if (q) {
+      const us = ChordPro.parseQuery(q);
+      if (!us) {
+        top = `<p class="count">Scrivi il nome di un accordo, per esempio ${state.notation === 'it' ? 'Lam7 o Fa#m' : 'Am7 o F#m'}.</p>`;
+      } else {
+        state.dictRoot = ChordPro.splitChord(us).pc;
+        const card = chordCard(us);
+        top = card ? `<div class="cards one">${card}</div>`
+          : `<p class="count">Nessun diagramma per «${esc(showChord(us))}». Ecco gli accordi di ${esc(ChordPro.noteName(state.dictRoot, state.notation))}.</p>`;
+      }
+    }
+    const root = ChordPro.ROOTS[state.dictRoot];
+    const rootName = esc(ChordPro.noteName(state.dictRoot, state.notation));
+    const chips = ChordPro.ROOTS.map((x, i) =>
+      `<button class="chip" data-act="root" data-value="${i}" aria-pressed="${i === state.dictRoot}">${esc(ChordPro.noteName(i, state.notation))}</button>`).join('');
+    const main = MAIN_TYPES.map(([s, label]) => chordCard(root + s, label)).join('');
+    const other = OTHER_TYPES.map((s) => chordCard(root + s)).join('');
+    box.innerHTML = `${top}<div class="chips" role="group" aria-label="Nota">${chips}</div>
+      <h2 class="sub">Accordi di ${rootName}</h2><div class="cards">${main}</div>
+      ${other ? `<h2 class="sub">Altri accordi di ${rootName}</h2><div class="cards">${other}</div>` : ''}`;
+  }
+
+  function viewDict() {
+    setNav('dict');
+    mainBar();
+    view.innerHTML = `
+      <div style="margin-top:4px">
+        <label class="visually-hidden" for="dq">Cerca un accordo</label>
+        <input id="dq" class="search" type="search" placeholder="Cerca un accordo, es. ${state.notation === 'it' ? 'Lam7' : 'Am7'}" value="${esc(state.dictQuery)}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      </div>
+      ${instSwitch()}
+      <div id="dict"></div>`;
+    renderDict();
+    document.getElementById('dq').addEventListener('input', (e) => { state.dictQuery = e.target.value; renderDict(); });
+  }
+
+  async function setSetting(key, value) {
+    state[key] = value;
+    await Meta.set(key, value);
+    const sheet = document.getElementById('sheet');
+    if (sheet.open) sheet.close();
+    const y = window.scrollY;
+    await route();
+    window.scrollTo(0, y);
   }
 
   /* ---------- Vista: aggiungi ---------- */
@@ -439,8 +600,20 @@ Regole:
     if (navigator.storage && navigator.storage.persisted) {
       try { persisted = await navigator.storage.persisted(); } catch { persisted = null; }
     }
+    const opt = (key, value, label) => `<button data-act="set-${key}" data-value="${value}" aria-pressed="${state[key === 'inst' ? 'instrument' : 'notation'] === value}">${label}</button>`;
     view.innerHTML = `
-      <h1 class="page">Backup</h1>
+      <h1 class="page">Impostazioni</h1>
+      <section class="section">
+        <h2>Strumento</h2>
+        <p>Vale per il dizionario e per gli accordi che tocchi nelle canzoni.</p>
+        <div class="tabs" role="group" aria-label="Strumento">${opt('inst', 'ukulele', 'Ukulele')}${opt('inst', 'guitar', 'Chitarra')}</div>
+      </section>
+      <section class="section">
+        <h2>Notazione degli accordi</h2>
+        <p>Le canzoni restano salvate in notazione americana: cambia solo come le vedi.</p>
+        <div class="tabs" role="group" aria-label="Notazione">${opt('notation', 'us', 'Americana: C, Em')}${opt('notation', 'it', 'Italiana: Do, Mim')}</div>
+      </section>
+      <h1 class="page" style="margin-top:36px">Backup</h1>
       <ul class="facts">
         <li><span>Canzoni sul telefono</span><span>${n}</span></li>
         <li><span>Ultimo backup</span><span>${last ? fmtDate(last) : 'Mai'}</span></li>
@@ -538,10 +711,11 @@ Regole:
     const parts = (location.hash || '#/').replace(/^#\/?/, '').split('/');
     const name = parts[0];
     const arg = parts[1] ? decodeURIComponent(parts[1]) : '';
-    state.route = { '': 'list', canzone: 'song', aggiungi: 'add', revisione: 'review', modifica: 'edit', backup: 'backup' }[name] || 'list';
+    state.route = { '': 'list', canzone: 'song', accordi: 'dict', aggiungi: 'add', revisione: 'review', modifica: 'edit', backup: 'backup' }[name] || 'list';
     if (state.route !== 'list') window.scrollTo(0, 0);
     switch (state.route) {
       case 'song': await viewSong(arg); break;
+      case 'dict': viewDict(); break;
       case 'add': viewAdd(); break;
       case 'review': await viewReview(null); break;
       case 'edit': await viewReview(arg); break;
@@ -564,6 +738,16 @@ Regole:
       case 'paste-clip': pasteFromClipboard(); break;
       case 'continue': continueImport(); break;
       case 'tab': showPane(el.dataset.pane); break;
+      case 'chord': openChord(el.dataset.chord); break;
+      case 'close-sheet': document.getElementById('sheet').close(); break;
+      case 'set-inst': setSetting('instrument', el.dataset.value); break;
+      case 'set-notation': setSetting('notation', el.dataset.value); break;
+      case 'root':
+        state.dictRoot = Number(el.dataset.value);
+        state.dictQuery = '';
+        document.getElementById('dq').value = '';
+        renderDict();
+        break;
       case 'edit-text':
         showPane('edit');
         document.getElementById('f-body').focus();
@@ -593,6 +777,10 @@ Regole:
         break;
       default: break;
     }
+  });
+
+  document.getElementById('sheet').addEventListener('click', (e) => {
+    if (e.target.id === 'sheet') e.target.close();
   });
 
   document.getElementById('file').addEventListener('change', (e) => {
@@ -625,6 +813,8 @@ Regole:
       return;
     }
     await applyLyricSize();
+    state.instrument = (await Meta.get('instrument')) || 'ukulele';
+    state.notation = (await Meta.get('notation')) || 'us';
     route();
     if (navigator.storage && navigator.storage.persisted) {
       navigator.storage.persisted().then((p) => { if (!p && navigator.storage.persist) navigator.storage.persist(); }).catch(() => {});
