@@ -299,6 +299,15 @@ const ChordPro = (() => {
 
   const displayChord = (name, notation) => (notation === 'it' ? toItalian(name) : name);
 
+  /** Sposta un accordo di n semitoni; il suffisso resta com'è scritto. */
+  function transposeChord(name, n) {
+    if (!n) return name;
+    const c = splitChord(name);
+    if (!c) return name;
+    const shift = (pc) => ROOTS[(((pc + n) % 12) + 12) % 12];
+    return shift(c.pc) + c.suffix + (c.bass ? '/' + shift(c.bass.pc) : '');
+  }
+
   /** Testo digitato nella ricerca (anche minuscolo, anche italiano) → accordo americano o null. */
   function parseQuery(q) {
     let t = String(q || '').trim().replace(/\s+/g, '');
@@ -313,7 +322,7 @@ const ChordPro = (() => {
   return {
     isChordToken, isChordLine, toAmerican, convertChordsOverLyrics, normalizeChordPro,
     looksLikeChordPro, splitGeminiResponse, extractMeta, importText, parse, plainText, tidy,
-    ROOTS, canonSuffix, splitChord, chordKeys, toItalian, noteName, displayChord, parseQuery,
+    ROOTS, canonSuffix, splitChord, chordKeys, toItalian, noteName, displayChord, parseQuery, transposeChord,
   };
 })();
 

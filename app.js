@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.2.0';
+  const VERSION = '0.3.0';
   const DAY = 24 * 60 * 60 * 1000;
   const SIZE_MIN = 14;
   const SIZE_MAX = 34;
@@ -25,6 +25,8 @@ Regole:
   const ICON = {
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   };
@@ -88,7 +90,10 @@ Regole:
     return s;
   }
   function cleanSong(s) {
-    return { id: s.id, title: s.title, artist: s.artist || '', body: s.body || '', createdAt: s.createdAt, updatedAt: s.updatedAt };
+    const out = { id: s.id, title: s.title, artist: s.artist || '', body: s.body || '', createdAt: s.createdAt, updatedAt: s.updatedAt };
+    if (Number.isInteger(s.transpose) && s.transpose) out.transpose = s.transpose;
+    if (Number.isInteger(s.scrollSpeed)) out.scrollSpeed = s.scrollSpeed;
+    return out;
   }
   async function loadSongs() {
     const all = await Songs.all();
@@ -163,7 +168,7 @@ Regole:
   /* ---------- Disegno del testo con gli accordi ---------- */
   const showChord = (name) => ChordPro.displayChord(name, state.notation);
 
-  function renderLyrics(body, { tap = false } = {}) {
+  function renderLyrics(body, { tap = false, transpose = 0 } = {}) {
     const { lines } = ChordPro.parse(body);
     let html = '';
     let open = false;
@@ -176,7 +181,8 @@ Regole:
         html += `<p class="ln"><span class="ly">${esc(ln.segments.map((s) => s.text).join(''))}</span></p>`;
         continue;
       }
-      html += '<p class="ln has-ch">' + ln.segments.map((s) => {
+      html += '<p class="ln has-ch">' + ln.segments.map((seg) => {
+        const s = { text: seg.text, chord: seg.chord && ChordPro.transposeChord(seg.chord, transpose) };
         const ch = !s.chord ? '<span class="ch"></span>'
           : tap ? `<button class="ch" data-act="chord" data-chord="${esc(s.chord)}">${esc(showChord(s.chord))}</button>`
             : `<span class="ch">${esc(showChord(s.chord))}</span>`;
@@ -252,15 +258,136 @@ Regole:
       <button class="icon-btn" data-act="bigger" aria-label="Testo più grande">A+</button>
       <a class="icon-btn" href="#/modifica/${encodeURIComponent(song.id)}" aria-label="Modifica canzone">${ICON.edit}</a>`);
     const { capo } = ChordPro.parse(song.body);
+    state.current = song;
     view.innerHTML = `
       <header class="song-head">
         <h1>${esc(song.title)}</h1>
         ${song.artist ? `<div class="artist">${esc(song.artist)}</div>` : ''}
         ${capo ? `<div class="capo">Capotasto al ${esc(capo)}° tasto</div>` : ''}
       </header>
-      <div class="lyrics">${renderLyrics(song.body, { tap: true })}</div>`;
+      <div class="lyrics" id="song-lyrics">${renderLyrics(song.body, { tap: true, transpose: song.transpose || 0 })}</div>`;
+    document.getElementById('tools').hidden = false;
+    document.body.classList.add('has-tools');
+    renderTools();
     state.currentTitle = song.title;
     await applyLyricSize();
+    keepAwake(true);
+  }
+
+  /* ---------- Tonalità, scorrimento automatico e schermo acceso ---------- */
+  const SPEED_MIN = 1;
+  const SPEED_MAX = 10;
+  const SPEED_DEFAULT = 4;
+  const pxPerSecond = (speed) => 5 * Math.pow(1.3, speed - 1);
+  const scroller = { on: false, raf: 0, last: 0, pos: 0, set: 0 };
+
+  function renderTools() {
+    const song = state.current;
+    if (!song) return;
+    const t = song.transpose || 0;
+    const speed = song.scrollSpeed || SPEED_DEFAULT;
+    document.getElementById('tools').innerHTML = `
+      <div class="in">
+        <div class="tool" role="group" aria-label="Tonalità">
+          <button class="icon-btn" data-act="tone" data-value="-1" aria-label="Un semitono giù">−</button>
+          <button class="tval" data-act="tone-reset" aria-label="Tonalità: ${t ? (t > 0 ? '+' : '') + t + ' semitoni, tocca per tornare all’originale' : 'originale'}"><b>${t ? (t > 0 ? '+' : '−') + Math.abs(t) : '0'}</b><span>Tono</span></button>
+          <button class="icon-btn" data-act="tone" data-value="1" aria-label="Un semitono su">+</button>
+        </div>
+        <div class="tool" role="group" aria-label="Scorrimento automatico">
+          <button class="icon-btn" data-act="speed" data-value="-1" aria-label="Più lento">−</button>
+          <button class="tval play" data-act="scroll" aria-label="${scroller.on ? 'Ferma lo scorrimento' : 'Avvia lo scorrimento'}">${scroller.on ? ICON.pause : ICON.play}<span>Vel. ${speed}</span></button>
+          <button class="icon-btn" data-act="speed" data-value="1" aria-label="Più veloce">+</button>
+        </div>
+      </div>`;
+  }
+
+  async function saveSongPrefs(changes) {
+    const song = state.current;
+    Object.assign(song, changes);
+    const stored = await Songs.get(song.id);
+    if (stored) await Songs.put(cleanSong({ ...stored, ...changes }));
+  }
+
+  function setTranspose(next) {
+    const song = state.current;
+    if (!song) return;
+    // 12 semitoni riportano all'originale: il valore resta tra −5 e +6.
+    let value = ((next % 12) + 12) % 12;
+    if (value > 6) value -= 12;
+    saveSongPrefs({ transpose: value });
+    document.getElementById('song-lyrics').innerHTML = renderLyrics(song.body, { tap: true, transpose: value });
+    renderTools();
+  }
+
+  function setSpeed(delta) {
+    const song = state.current;
+    if (!song) return;
+    const cur = song.scrollSpeed || SPEED_DEFAULT;
+    const next = Math.min(SPEED_MAX, Math.max(SPEED_MIN, cur + delta));
+    if (next === cur) { toast(delta > 0 ? 'Velocità massima' : 'Velocità minima'); return; }
+    saveSongPrefs({ scrollSpeed: next });
+    renderTools();
+  }
+
+  function scrollStep(ts) {
+    if (!scroller.on) return;
+    const dt = Math.min(0.5, (ts - (scroller.last || ts)) / 1000);
+    scroller.last = ts;
+    // Se hai spostato il testo con il dito, riparte da lì.
+    if (Math.abs(window.scrollY - scroller.set) > 3) scroller.pos = window.scrollY;
+    scroller.pos += pxPerSecond((state.current && state.current.scrollSpeed) || SPEED_DEFAULT) * dt;
+    window.scrollTo(0, scroller.pos);
+    scroller.set = window.scrollY;
+    const end = document.documentElement.scrollHeight - window.innerHeight;
+    if (window.scrollY >= end - 1 && scroller.pos >= end) { stopScroll(); toast('Fine della canzone'); return; }
+    scroller.raf = requestAnimationFrame(scrollStep);
+  }
+
+  function startScroll() {
+    if (scroller.on) return;
+    scroller.on = true;
+    scroller.last = 0;
+    scroller.pos = window.scrollY;
+    scroller.set = window.scrollY;
+    scroller.raf = requestAnimationFrame(scrollStep);
+    keepAwake(true);
+    renderTools();
+  }
+
+  function stopScroll() {
+    if (!scroller.on) return;
+    scroller.on = false;
+    cancelAnimationFrame(scroller.raf);
+    renderTools();
+  }
+
+  let wakeLock = null;
+  async function keepAwake(on) {
+    try {
+      if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!on && wakeLock) {
+        const w = wakeLock;
+        wakeLock = null;
+        await w.release();
+      }
+    } catch { wakeLock = null; }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.route === 'song') keepAwake(true);
+    if (document.visibilityState === 'hidden') stopScroll();
+  });
+
+  function leaveSong() {
+    stopScroll();
+    keepAwake(false);
+    state.current = null;
+    const tools = document.getElementById('tools');
+    tools.hidden = true;
+    tools.innerHTML = '';
+    document.body.classList.remove('has-tools');
   }
 
   function changeSize(delta) {
@@ -538,7 +665,9 @@ Regole:
       return;
     }
     const now = Date.now();
+    const prev = d.id ? await Songs.get(d.id) : null;
     const song = {
+      ...(prev ? { transpose: prev.transpose, scrollSpeed: prev.scrollSpeed } : {}),
       id: d.id || uid(),
       title,
       artist: (d.artist || '').trim(),
@@ -708,6 +837,7 @@ Regole:
   async function route() {
     const prev = state.route;
     if (prev === 'list') state.listScroll = window.scrollY;
+    if (prev === 'song') leaveSong();
     const parts = (location.hash || '#/').replace(/^#\/?/, '').split('/');
     const name = parts[0];
     const arg = parts[1] ? decodeURIComponent(parts[1]) : '';
@@ -726,7 +856,10 @@ Regole:
 
   document.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (!el) {
+      if (scroller.on && e.target.closest('#song-lyrics')) stopScroll();
+      return;
+    }
     const act = el.dataset.act;
     switch (act) {
       case 'back': goBack('#/'); break;
@@ -738,7 +871,11 @@ Regole:
       case 'paste-clip': pasteFromClipboard(); break;
       case 'continue': continueImport(); break;
       case 'tab': showPane(el.dataset.pane); break;
-      case 'chord': openChord(el.dataset.chord); break;
+      case 'chord': stopScroll(); openChord(el.dataset.chord); break;
+      case 'tone': setTranspose(((state.current && state.current.transpose) || 0) + Number(el.dataset.value)); break;
+      case 'tone-reset': setTranspose(0); break;
+      case 'speed': setSpeed(Number(el.dataset.value)); break;
+      case 'scroll': if (scroller.on) stopScroll(); else startScroll(); break;
       case 'close-sheet': document.getElementById('sheet').close(); break;
       case 'set-inst': setSetting('instrument', el.dataset.value); break;
       case 'set-notation': setSetting('notation', el.dataset.value); break;

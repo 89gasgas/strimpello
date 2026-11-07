@@ -158,8 +158,8 @@ Il rischio principale è che Gemini alteri testo o accordi senza che te ne accor
 La v1 si costruisce in tre tappe, ognuna provata sul telefono prima della successiva.
 
 - [ ] Tappa 1: archivio (A1–A3, A5, A6), import con revisione (I3–I5, I8, I9), backup (B1–B5). File consegnati il 7 novembre 2026, da provare sul telefono
-- [ ] Tappa 2: dizionario (D1–D9), tocco sull'accordo (A4), trasposizione (A7, A10). Dizionario, tocco sull'accordo e impostazioni consegnati il 7 novembre 2026 (versione 0.2.0); manca la trasposizione
-- [ ] Tappa 3: scorrimento automatico e schermo acceso (A8, A9, A10), menu Condividi (I6), OCR (I1, I2)
+- [ ] Tappa 2: dizionario (D1–D9), tocco sull'accordo (A4), trasposizione (A7, A10). Dizionario e tocco sull'accordo consegnati il 7 novembre 2026 (versione 0.2.0) e provati sul telefono; trasposizione consegnata il 7 novembre 2026 (versione 0.3.0), da provare sul telefono
+- [ ] Tappa 3: scorrimento automatico e schermo acceso (A8, A9, A10), menu Condividi (I6), OCR (I1, I2). Scorrimento automatico e schermo acceso anticipati alla versione 0.3.0 (7 novembre 2026), da provare sul telefono; restano Condividi e OCR
 
 ## Criteri di accettazione della v1
 

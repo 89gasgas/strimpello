@@ -60,7 +60,7 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
   min-height: 100vh;
 }
-body.has-nav { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
+body.has-nav, body.has-tools { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
 a { color: inherit; }
 button, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -252,6 +252,26 @@ body.has-nav .nav { display: block; }
 .nav a svg { width: 24px; height: 24px; }
 .nav a[aria-current="page"] { color: var(--chord); }
 
+/* Barra della canzone: tonalità e scorrimento */
+.tools {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tools[hidden] { display: none; }
+.tools .in { max-width: 720px; margin: 0 auto; height: var(--nav-h); display: flex; align-items: center; justify-content: space-around; gap: 8px; padding: 0 6px; }
+.tool { display: flex; align-items: center; gap: 2px; }
+.tool .icon-btn { font-size: 24px; font-weight: 500; min-width: 46px; }
+.tval {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 58px; height: 52px; border: 0; border-radius: var(--radius-m); background: transparent; cursor: pointer; padding: 0 6px;
+}
+.tval b { font: 700 19px/1.1 var(--sans); color: var(--chord); }
+.tval span { font-size: 11px; color: var(--muted); font-weight: 600; }
+.tval.play { background: var(--accent); color: var(--accent-ink); min-width: 64px; }
+.tval.play span { color: inherit; opacity: .85; }
+.tval.play svg { width: 22px; height: 22px; }
+
 /* Avvisi e dialoghi */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
@@ -297,6 +317,7 @@ dialog .btn + .btn { margin-top: 10px; }
     </a>
   </div>
 </nav>
+<div class="tools" id="tools" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <dialog id="dialog"></dialog>
 <dialog id="sheet" class="sheet" aria-label="Diagramma dell'accordo"></dialog>
