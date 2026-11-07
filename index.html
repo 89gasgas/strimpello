@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Strimpello</title>
+<meta name="description" content="I tuoi accordi per ukulele e chitarra, sempre con te.">
+<meta name="theme-color" content="#F2F2EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121514" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #F2F2EF;
+  --surface: #FFFFFF;
+  --ink: #1A1D1C;
+  --muted: #5E6562;
+  --line: #DADCD8;
+  --chord: #B0103C;
+  --accent: #B0103C;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F8E3E9;
+  --note-bg: #FFF3C4;
+  --note-ink: #4D3B00;
+  --focus: #1F5FBF;
+  --serif: "Noto Serif", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: system-ui, Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Roboto Mono", "Droid Sans Mono", Menlo, Consolas, monospace;
+  --lyric-size: 19px;
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --nav-h: 64px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121514;
+    --surface: #1A1E1D;
+    --ink: #E8ECEA;
+    --muted: #9BA5A0;
+    --line: #2C3331;
+    --chord: #FF8FA6;
+    --accent: #FF8FA6;
+    --accent-ink: #2A0610;
+    --accent-soft: #3A1A22;
+    --note-bg: #3B3212;
+    --note-ink: #F4E3A1;
+    --focus: #8DB8FF;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 var(--sans);
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: 100vh;
+}
+body.has-nav { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
+a { color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+
+/* Barra superiore */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg);
+  display: flex; align-items: center; gap: 4px;
+  min-height: 56px; padding: 0 8px;
+  border-bottom: 1px solid transparent;
+}
+.topbar.scrolled { border-bottom-color: var(--line); }
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  background: var(--bg); z-index: 10;
+}
+.wordmark { font: 700 22px/1 var(--serif); letter-spacing: -0.01em; padding: 0 8px; margin: 0; }
+.topbar .spacer { flex: 1; }
+.topbar .bar-title { font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 48px; height: 48px; padding: 0 10px;
+  border: 0; border-radius: 24px; background: transparent; cursor: pointer;
+  text-decoration: none; font-weight: 600;
+}
+.icon-btn:active { background: var(--line); }
+.icon-btn svg { width: 24px; height: 24px; }
+
+/* Pulsanti */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px;
+  border-radius: var(--radius-m); border: 1px solid var(--line);
+  background: var(--surface); font-weight: 600; cursor: pointer; text-decoration: none;
+}
+.btn svg { width: 20px; height: 20px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--chord); border-color: transparent; background: transparent; padding: 0 8px; }
+.btn.block { width: 100%; }
+.btn:disabled { opacity: .5; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > .btn { flex: 1 1 auto; }
+
+/* Ricerca ed elenco */
+.search {
+  width: 100%; height: 48px; padding: 0 16px;
+  border-radius: 24px; border: 1px solid var(--line); background: var(--surface);
+  font-size: 16px;
+}
+.count { color: var(--muted); font-size: 14px; margin: 12px 4px 4px; }
+.songs { list-style: none; margin: 0 0 24px; padding: 0; }
+.songs li + li { border-top: 1px solid var(--line); }
+.songs a {
+  display: block; padding: 14px 4px; text-decoration: none;
+}
+.songs .t { display: block; font: 600 18px/1.3 var(--serif); }
+.songs .a { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.empty { padding: 40px 4px; }
+.empty h2 { font: 600 22px/1.3 var(--serif); margin: 0 0 8px; }
+.empty p { color: var(--muted); margin: 0 0 20px; }
+
+.banner {
+  background: var(--note-bg); color: var(--note-ink);
+  border-radius: var(--radius-m); padding: 14px 16px; margin: 12px 0;
+}
+.banner p { margin: 0 0 10px; }
+.banner .row .btn { min-height: 40px; flex: 0 0 auto; }
+
+/* Canzone */
+.song-head { padding: 8px 0 18px; }
+.song-head h1 { font: 700 28px/1.2 var(--serif); margin: 0; letter-spacing: -0.01em; }
+.song-head .artist { color: var(--muted); font-size: 16px; margin-top: 4px; }
+.song-head .capo { display: inline-block; margin-top: 10px; font-size: 14px; color: var(--chord); font-weight: 600; }
+.lyrics { font: var(--lyric-size)/1.35 var(--serif); padding-bottom: 40vh; }
+.lyrics .ln { margin: 0; }
+.lyrics .ln.has-ch { margin-top: .15em; }
+.lyrics .gap { height: .9em; }
+.lyrics .seg { display: inline-flex; flex-direction: column; vertical-align: bottom; }
+.lyrics .ch {
+  font: 700 0.82em/1.2 var(--sans); color: var(--chord);
+  padding-right: .45em; white-space: pre; min-height: 1.2em;
+}
+.lyrics .ly { white-space: pre-wrap; }
+.lyrics .chorus { border-left: 3px solid color-mix(in srgb, var(--chord) 45%, transparent); padding-left: 12px; margin-left: -15px; }
+.lyrics .cm { font: italic 0.85em/1.4 var(--sans); color: var(--muted); margin: .4em 0 .2em; }
+
+/* Moduli */
+h1.page { font: 700 26px/1.2 var(--serif); margin: 8px 0 16px; letter-spacing: -0.01em; }
+.steps { margin: 0 0 16px; padding-left: 22px; }
+.steps li { margin: 4px 0; }
+label.field { display: block; margin: 14px 0; }
+label.field span { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+input.text, textarea.text {
+  width: 100%; border: 1px solid var(--line); border-radius: var(--radius-s);
+  background: var(--surface); padding: 12px; font-size: 16px;
+}
+textarea.text { min-height: 40vh; resize: vertical; font: 15px/1.5 var(--mono); }
+textarea.paste { min-height: 34vh; }
+.hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+.field-error { color: var(--chord); font-size: 14px; margin-top: 6px; }
+.tabs { display: flex; border: 1px solid var(--line); border-radius: var(--radius-m); padding: 3px; margin: 18px 0 12px; background: var(--surface); }
+.tabs button {
+  flex: 1; min-height: 42px; border: 0; border-radius: 9px; background: transparent; font-weight: 600; cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--chord); }
+.preview { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 14px 16px; }
+.preview .lyrics { padding-bottom: 0; }
+.actions { margin: 20px 0 32px; }
+.actions .btn + .btn { margin-top: 10px; }
+.note {
+  background: var(--note-bg); color: var(--note-ink);
+  border-radius: var(--radius-m); padding: 12px 14px; margin: 0 0 8px;
+  white-space: pre-wrap; font-size: 15px;
+}
+.note strong { display: block; margin-bottom: 4px; }
+
+/* Backup */
+.facts { margin: 0 0 20px; padding: 0; list-style: none; }
+.facts li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.facts li span:last-child { font-weight: 600; text-align: right; }
+.section { margin: 28px 0; }
+.section h2 { font: 600 19px/1.3 var(--serif); margin: 0 0 6px; }
+.section p { margin: 0 0 12px; color: var(--muted); }
+.version { color: var(--muted); font-size: 13px; margin: 32px 0; }
+
+/* Navigazione in basso */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: none;
+}
+body.has-nav .nav { display: block; }
+.nav .in { max-width: 720px; margin: 0 auto; display: flex; height: var(--nav-h); }
+.nav a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  text-decoration: none; font-size: 12px; font-weight: 600; color: var(--muted);
+}
+.nav a svg { width: 24px; height: 24px; }
+.nav a[aria-current="page"] { color: var(--chord); }
+
+/* Avvisi e dialoghi */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: var(--radius-m);
+  font-weight: 600; z-index: 20; max-width: calc(100% - 32px);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.toast.show { opacity: 1; }
+dialog {
+  border: 0; border-radius: 16px; padding: 22px; width: min(92vw, 420px);
+  background: var(--surface); color: var(--ink);
+}
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog h2 { font: 600 20px/1.3 var(--serif); margin: 0 0 8px; }
+dialog p { margin: 0 0 18px; color: var(--muted); }
+dialog .btn { width: 100%; }
+dialog .btn + .btn { margin-top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main id="view" class="wrap" tabindex="-1"></main>
+<nav class="nav" aria-label="Sezioni">
+  <div class="in">
+    <a href="#/" data-tab="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+      Canzoni
+    </a>
+    <a href="#/aggiungi" data-tab="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Aggiungi
+    </a>
+    <a href="#/backup" data-tab="backup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Backup
+    </a>
+  </div>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="dialog"></dialog>
+<input type="file" id="file" accept=".json,application/json,text/plain" class="visually-hidden" tabindex="-1" aria-hidden="true">
+<script src="chordpro.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
